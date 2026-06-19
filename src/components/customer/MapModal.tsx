@@ -72,7 +72,7 @@ export default function MapModal({ onSelect, onClose }: Props) {
       <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
         {/* Yandex Xaritasi */}
         <Box sx={{ width: '100%', height: 400, position: 'relative' }}>
-          <YMaps query={{ lang: 'uz_UZ', load: 'geocode' }}>
+          <YMaps query={{ lang: 'uz_UZ' as any, load: 'geocode' }}>
             <Map
               defaultState={{ center: [41.2995, 69.2401], zoom: 12 }}
               state={{ center: coords, zoom: 15 }}
