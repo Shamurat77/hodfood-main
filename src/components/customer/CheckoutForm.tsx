@@ -81,6 +81,8 @@ export default function CheckoutForm() {
   function handleSubmit() {
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
+    
+    // Xato bergan qismni to'g'riladik (undefined o'rniga "")
     initiateSMS({
       items: cart,
       customerName: name,
@@ -88,8 +90,8 @@ export default function CheckoutForm() {
       address: orderType === 'pickup' ? `${branch} filiali (kelib olib ketish)` : address,
       orderType,
       paymentMethod: payment,
-      cardNumber: payment === 'card' ? cardNumber : undefined,
-      expiryDate: payment === 'card' ? expiry : undefined,
+      cardNumber: payment === 'card' ? cardNumber : "",
+      expiryDate: payment === 'card' ? expiry : "",
       branch,
       total,
     });
@@ -324,7 +326,6 @@ export default function CheckoutForm() {
             onClick={handleSubmit}
             sx={{ borderRadius: 3, py: 1.5, fontWeight: 800, fontSize: '1rem' }}
           >
-            {/* AGAR KARTA TANLANSA SMS YUBORISH YOZUV CHIQADI, NAQD BO'LSA FAQAT TASDIQLASH */}
             {payment === 'card' ? 'Tasdiqlash va SMS yuborish →' : 'Buyurtmani tasdiqlash →'}
           </Button>
         </DialogActions>
