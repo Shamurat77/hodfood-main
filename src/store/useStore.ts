@@ -390,6 +390,11 @@ useStore.getState().listenToMenuItems();
 useStore.getState().listenToUsers();
 useStore.getState().listenToBranches();
 
-function setDoc(arg0: DocumentReference<DocumentData, DocumentData>, arg1: { uid: string; name: string; email: string; avatar: string; lastSeen: string; firstSeen: string; }, arg2: { merge: boolean; }) {
-  throw new Error('Function not implemented.');
+async function setDoc(
+  arg0: DocumentReference<DocumentData, DocumentData>,
+  arg1: { uid: string; name: string; email: string; avatar: string; lastSeen: string; firstSeen: string; },
+  arg2: { merge: boolean; }
+) {
+  const { setDoc: firestoreSetDoc } = await import('firebase/firestore');
+  return firestoreSetDoc(arg0, arg1, arg2);
 }
