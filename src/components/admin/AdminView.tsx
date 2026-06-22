@@ -14,6 +14,7 @@ import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
 import TapasOutlined from '@mui/icons-material/TapasOutlined';
 import StorefrontOutlined from '@mui/icons-material/StorefrontOutlined';
 import HistoryOutlined from '@mui/icons-material/HistoryOutlined';
+import PeopleOutlined from '@mui/icons-material/PeopleOutlined';
 import ShieldOutlined from '@mui/icons-material/ShieldOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useState } from 'react';
@@ -24,31 +25,39 @@ import BranchesList from './BranchesList';
 import GlobalHistory from './GlobalHistory';
 import type { AdminSection } from '../../types';
 
+const UsersList = () => (
+  <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
+    <Typography variant="h6" fontWeight={700} gutterBottom>
+      Foydalanuvchilar
+    </Typography>
+    <Typography color="text.secondary">
+      Foydalanuvchilar bo'limi hozircha mavjud emas yoki komponent topilmadi.
+    </Typography>
+  </Box>
+);
+
 const SIDEBAR_WIDTH = 240;
 
 const SECTIONS: { key: AdminSection; label: string; icon: React.ReactNode }[] = [
-  { key: 'dashboard', label: 'Boshqaruv paneli', icon: <DashboardOutlined /> },
-  { key: 'menu', label: 'Menyuni tahrirlash', icon: <TapasOutlined /> },
-  { key: 'branches', label: 'Filiallar', icon: <StorefrontOutlined /> },
-  { key: 'history', label: 'Xaridlar tarixi', icon: <HistoryOutlined /> },
+  { key: 'dashboard',  label: 'Boshqaruv paneli',  icon: <DashboardOutlined /> },
+  { key: 'menu',       label: 'Menyuni tahrirlash', icon: <TapasOutlined /> },
+  { key: 'branches',   label: 'Filiallar',          icon: <StorefrontOutlined /> },
+  { key: 'history',    label: 'Xaridlar tarixi',    icon: <HistoryOutlined /> },
+  { key: 'users',      label: 'Foydalanuvchilar',   icon: <PeopleOutlined /> },
 ];
 
 function SidebarContent({ onClose }: { onClose?: () => void }) {
   const { adminSection, setAdminSection } = useStore();
   return (
     <Box sx={{ width: SIDEBAR_WIDTH, height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box
-        sx={{
-          background: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)',
-          p: 2.5,
-          color: '#fff',
-        }}
-      >
+      <Box sx={{ background: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)', p: 2.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
           <ShieldOutlined sx={{ color: '#FFD700', fontSize: 22 }} />
           <Typography fontWeight={900} fontSize="0.95rem" color="#fff">Super Admin Panel</Typography>
         </Box>
-        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>G'uncha HotFood</Typography>
+        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+          G'uncha HotFood
+        </Typography>
       </Box>
 
       <Box sx={{ flex: 1, bgcolor: '#1a1a2e', p: 1.5 }}>
@@ -70,7 +79,9 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
                   '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 36, color: adminSection === key ? '#fff' : 'rgba(255,255,255,0.5)' }}>
+                <ListItemIcon
+                  sx={{ minWidth: 36, color: adminSection === key ? '#fff' : 'rgba(255,255,255,0.5)' }}
+                >
                   {icon}
                 </ListItemIcon>
                 <ListItemText
@@ -94,14 +105,14 @@ export default function AdminView() {
 
   const SectionComponent = {
     dashboard: Dashboard,
-    menu: MenuManagement,
-    branches: BranchesList,
-    history: GlobalHistory,
+    menu:      MenuManagement,
+    branches:  BranchesList,
+    history:   GlobalHistory,
+    users:     UsersList,
   }[adminSection];
 
   return (
     <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
-      {/* Desktop sidebar */}
       {!isMobile && (
         <Box sx={{ width: SIDEBAR_WIDTH, flexShrink: 0 }}>
           <Box sx={{ position: 'sticky', top: 64, height: 'calc(100vh - 64px)', overflow: 'auto' }}>
@@ -110,7 +121,6 @@ export default function AdminView() {
         </Box>
       )}
 
-      {/* Mobile sidebar */}
       <Drawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
@@ -119,12 +129,15 @@ export default function AdminView() {
         <SidebarContent onClose={() => setDrawerOpen(false)} />
       </Drawer>
 
-      {/* Main content */}
       <Box sx={{ flex: 1, overflow: 'auto', bgcolor: 'background.default' }}>
         <Container maxWidth="xl" sx={{ px: { xs: 1.5, sm: 3 }, py: 3 }}>
           {isMobile && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <IconButton onClick={() => setDrawerOpen(true)} size="small" sx={{ bgcolor: 'primary.main', color: '#fff', '&:hover': { bgcolor: 'primary.dark' } }}>
+              <IconButton
+                onClick={() => setDrawerOpen(true)}
+                size="small"
+                sx={{ bgcolor: 'primary.main', color: '#fff', '&:hover': { bgcolor: 'primary.dark' } }}
+              >
                 <MenuIcon />
               </IconButton>
               <Typography variant="caption" color="text.secondary" fontWeight={600}>

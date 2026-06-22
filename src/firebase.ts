@@ -1,7 +1,9 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore"; // FIRESTORE QO'SHILDI
+import { getFirestore } from "firebase/firestore"; 
+// src/firebase.ts faylining eng pastiga shuni qo'shib qo'ying:
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCBULKOvd9Mp5GPn2t27qO5zguHDiE07Lo",
@@ -15,6 +17,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const analytics = getAnalytics(app);
+export const storage = getStorage(app);// FIRESTORE QO'SHILDI
 
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();

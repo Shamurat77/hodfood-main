@@ -1,14 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { collection, addDoc, updateDoc, doc, onSnapshot, query } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, deleteDoc, onSnapshot, query, DocumentReference, type DocumentData } from 'firebase/firestore';
 import { db } from '../firebase';
 import type {
   MenuItem, CartItem, Order, AppMode, AdminSection,
-  OrderStatus, Category, User, OrderType, StatsFilter,
+  OrderStatus, Category, User, OrderType, StatsFilter, AppUser,
 } from '../types';
-import { INITIAL_MENU } from '../data/menuData';
 
-function makeId() { return Math.random().toString(36).slice(2, 8).toUpperCase(); }
 function makeCode() { return String(Math.floor(1000 + Math.random() * 9000)); }
 
 interface PendingOrder {
@@ -22,11 +20,13 @@ interface PendingOrder {
   expiryDate?: string;
   branch: string;
   total: number;
+  userEmail?: string;
 }
 
 interface AppState {
   mode: AppMode;
   setMode: (mode: AppMode) => void;
+
   user: User | null;
   loginModalOpen: boolean;
   profileOpen: boolean;
@@ -36,24 +36,30 @@ interface AppState {
   logout: () => void;
   setProfileOpen: (open: boolean) => void;
   setMobileMenuOpen: (open: boolean) => void;
+
   menuItems: MenuItem[];
-  addMenuItem: (item: Omit<MenuItem, 'id'>) => void;
-  updateMenuItem: (id: string, updates: Partial<Omit<MenuItem, 'id'>>) => void;
-  deleteMenuItem: (id: string) => void;
+  addMenuItem: (item: Omit<MenuItem, 'id'>) => Promise<void>;
+  updateMenuItem: (id: string, updates: Partial<Omit<MenuItem, 'id'>>) => Promise<void>;
+  deleteMenuItem: (id: string) => Promise<void>;
+  listenToMenuItems: () => void;
+
   cart: CartItem[];
   addToCart: (item: MenuItem, spicySauce: boolean) => void;
   removeFromCart: (itemId: string, spicySauce: boolean) => void;
   clearCart: () => void;
   cartOpen: boolean;
   setCartOpen: (open: boolean) => void;
+
   customerTab: 'menu' | 'history';
   setCustomerTab: (tab: 'menu' | 'history') => void;
   activeCategory: Category | 'all';
   setActiveCategory: (cat: Category | 'all') => void;
+
   checkoutOpen: boolean;
   setCheckoutOpen: (open: boolean) => void;
   orderType: OrderType;
   setOrderType: (type: OrderType) => void;
+
   smsModalOpen: boolean;
   smsCode: string;
   pendingOrder: PendingOrder | null;
@@ -61,13 +67,21 @@ interface AppState {
   initiateSMS: (orderData: PendingOrder) => Promise<void>;
   confirmSMS: (inputCode: string) => Promise<boolean>;
   closeReceipt: () => void;
+
   orders: Order[];
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   listenToOrders: () => void;
+
+  appUsers: AppUser[];
+  listenToUsers: () => void;
+  selectedUserModal: string | null;
+  setSelectedUserModal: (email: string | null) => void;
+
   currentBranch: string | null;
   setCurrentBranch: (branch: string | null) => void;
   branchTab: 'orders' | 'history';
   setBranchTab: (tab: 'orders' | 'history') => void;
+
   adminSection: AdminSection;
   setAdminSection: (section: AdminSection) => void;
   statsFilter: StatsFilter;
@@ -76,9 +90,14 @@ interface AppState {
   setStatsBranch: (branch: string) => void;
   selectedBranchModal: string | null;
   setSelectedBranchModal: (branch: string | null) => void;
+
+
+  branchesList: { id: string, name: string }[];
+  addBranch: (name: string) => Promise<void>;
+  deleteBranch: (id: string) => Promise<void>;
+  listenToBranches: () => void;
 }
 
-// PERSIST (Xotira) qo'shilgan versiyasi
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -90,31 +109,101 @@ export const useStore = create<AppState>()(
       profileOpen: false,
       mobileMenuOpen: false,
       setLoginModalOpen: (open) => set({ loginModalOpen: open }),
-      login: (user) => set({ user, loginModalOpen: false }),
+      login: async (user) => {
+        set({ user, loginModalOpen: false });
+        // Foydalanuvchini Firestore'ga saqlash
+        try {
+          const now = new Date().toISOString();
+          await setDoc(
+            doc(db, 'users', user.email),
+            {
+              uid: user.email,
+              name: user.name,
+              email: user.email,
+              avatar: user.avatar,
+              lastSeen: now,
+              firstSeen: now,
+            },
+            { merge: true }
+          );
+        } catch (e) {
+          console.error('User saqlashda xatolik:', e);
+        }
+      },
       logout: () => set({ user: null, profileOpen: false }),
       setProfileOpen: (open) => set({ profileOpen: open }),
       setMobileMenuOpen: (open) => set({ mobileMenuOpen: open }),
 
-      menuItems: INITIAL_MENU,
-      addMenuItem: (item) => set((s) => ({ menuItems: [...s.menuItems, { ...item, id: makeId() }] })),
-      updateMenuItem: (id, updates) => set((s) => ({ menuItems: s.menuItems.map((m) => (m.id === id ? { ...m, ...updates } : m)) })),
-      deleteMenuItem: (id) => set((s) => ({ menuItems: s.menuItems.filter((m) => m.id !== id) })),
+      menuItems: [],
+      addMenuItem: async (item) => {
+        try {
+          await addDoc(collection(db, 'menuItems'), item);
+        } catch (error) {
+          console.error("Menyu qo'shishda xatolik:", error);
+        }
+      },
+      updateMenuItem: async (id, updates) => {
+        try {
+          await updateDoc(doc(db, 'menuItems', id), updates as Record<string, unknown>);
+        } catch (error) {
+          console.error('Menyu yangilashda xatolik:', error);
+        }
+      },
+      deleteMenuItem: async (id) => {
+        try {
+          await deleteDoc(doc(db, 'menuItems', id));
+        } catch (error) {
+          console.error("Menyu o'chirishda xatolik:", error);
+        }
+      },
+      listenToMenuItems: () => {
+        const q = query(collection(db, 'menuItems'));
+        onSnapshot(q, (snapshot) => {
+          const fetchedItems: MenuItem[] = snapshot.docs.map((docSnap) => ({
+            ...docSnap.data(),
+            id: docSnap.id,
+          })) as MenuItem[];
+          set({ menuItems: fetchedItems });
+        });
+      },
 
       cart: [],
       addToCart: (item, spicySauce) =>
         set((s) => {
-          const existing = s.cart.find((c) => c.menuItem.id === item.id && c.spicySauce === spicySauce);
+          const existing = s.cart.find(
+            (c) => c.menuItem.id === item.id && c.spicySauce === spicySauce
+          );
           if (existing) {
-            return { cart: s.cart.map((c) => c.menuItem.id === item.id && c.spicySauce === spicySauce ? { ...c, quantity: c.quantity + 1 } : c) };
+            return {
+              cart: s.cart.map((c) =>
+                c.menuItem.id === item.id && c.spicySauce === spicySauce
+                  ? { ...c, quantity: c.quantity + 1 }
+                  : c
+              ),
+            };
           }
           return { cart: [...s.cart, { menuItem: item, quantity: 1, spicySauce }] };
         }),
       removeFromCart: (itemId, spicySauce) =>
         set((s) => {
-          const existing = s.cart.find((c) => c.menuItem.id === itemId && c.spicySauce === spicySauce);
+          const existing = s.cart.find(
+            (c) => c.menuItem.id === itemId && c.spicySauce === spicySauce
+          );
           if (!existing) return s;
-          if (existing.quantity === 1) return { cart: s.cart.filter((c) => !(c.menuItem.id === itemId && c.spicySauce === spicySauce)) };
-          return { cart: s.cart.map((c) => c.menuItem.id === itemId && c.spicySauce === spicySauce ? { ...c, quantity: c.quantity - 1 } : c) };
+          if (existing.quantity === 1) {
+            return {
+              cart: s.cart.filter(
+                (c) => !(c.menuItem.id === itemId && c.spicySauce === spicySauce)
+              ),
+            };
+          }
+          return {
+            cart: s.cart.map((c) =>
+              c.menuItem.id === itemId && c.spicySauce === spicySauce
+                ? { ...c, quantity: c.quantity - 1 }
+                : c
+            ),
+          };
         }),
       clearCart: () => set({ cart: [] }),
       cartOpen: false,
@@ -136,18 +225,24 @@ export const useStore = create<AppState>()(
       receiptOrder: null,
 
       initiateSMS: async (orderData) => {
+        const { user } = get();
+        const enriched = { ...orderData, userEmail: user?.email ?? '' };
         if (orderData.paymentMethod === 'cash') {
-          const newOrderData = { ...orderData, status: 'new', createdAt: new Date().toISOString() };
+          const newOrderData = { ...enriched, status: 'new', createdAt: new Date().toISOString() };
           try {
             const docRef = await addDoc(collection(db, 'orders'), newOrderData);
-            const newOrder: Order = { ...newOrderData, id: docRef.id, createdAt: new Date() } as Order;
-            set(() => ({ cart: [], checkoutOpen: false, receiptOrder: newOrder }));
+            const newOrder: Order = {
+              ...newOrderData,
+              id: docRef.id,
+              createdAt: new Date(),
+            } as Order;
+            set({ cart: [], checkoutOpen: false, receiptOrder: newOrder });
           } catch (error) {
             console.error("Firebase'ga saqlashda xatolik:", error);
           }
         } else {
           const code = makeCode();
-          set({ pendingOrder: orderData, smsCode: code, smsModalOpen: true, checkoutOpen: false });
+          set({ pendingOrder: enriched, smsCode: code, smsModalOpen: true, checkoutOpen: false });
         }
       },
 
@@ -155,12 +250,15 @@ export const useStore = create<AppState>()(
         const { smsCode, pendingOrder } = get();
         if (inputCode !== smsCode) return false;
         if (!pendingOrder) return false;
-
         const newOrderData = { ...pendingOrder, status: 'new', createdAt: new Date().toISOString() };
         try {
           const docRef = await addDoc(collection(db, 'orders'), newOrderData);
-          const newOrder: Order = { ...newOrderData, id: docRef.id, createdAt: new Date() } as Order;
-          set(() => ({ cart: [], smsModalOpen: false, pendingOrder: null, receiptOrder: newOrder }));
+          const newOrder: Order = {
+            ...newOrderData,
+            id: docRef.id,
+            createdAt: new Date(),
+          } as Order;
+          set({ cart: [], smsModalOpen: false, pendingOrder: null, receiptOrder: newOrder });
           return true;
         } catch (error) {
           console.error("Firebase'ga saqlashda xatolik:", error);
@@ -171,31 +269,63 @@ export const useStore = create<AppState>()(
       closeReceipt: () => set({ receiptOrder: null }),
 
       orders: [],
-
       updateOrderStatus: async (orderId, status) => {
-        set((s) => ({ orders: s.orders.map((o) => (o.id === orderId ? { ...o, status } : o)) }));
+        set((s) => ({
+          orders: s.orders.map((o) => (o.id === orderId ? { ...o, status } : o)),
+        }));
         try {
-          const orderRef = doc(db, 'orders', orderId);
-          await updateDoc(orderRef, { status });
+          await updateDoc(doc(db, 'orders', orderId), { status });
         } catch (error) {
-          console.error("Statusni bazada yangilashda xatolik:", error);
+          console.error('Statusni bazada yangilashda xatolik:', error);
         }
       },
-
       listenToOrders: () => {
         const q = query(collection(db, 'orders'));
         onSnapshot(q, (snapshot) => {
-          const fetchedOrders: Order[] = [];
-          snapshot.forEach((docSnap) => {
+          const fetchedOrders: Order[] = snapshot.docs.map((docSnap) => {
             const data = docSnap.data();
-            fetchedOrders.push({
+            return {
               ...data,
               id: docSnap.id,
               createdAt: new Date(data.createdAt),
-            } as Order);
+            } as Order;
           });
           fetchedOrders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
           set({ orders: fetchedOrders });
+        });
+      },
+
+      // ─── FOYDALANUVCHILAR ───────────────────────────────────────────
+      appUsers: [],
+      selectedUserModal: null,
+      setSelectedUserModal: (email) => set({ selectedUserModal: email }),
+      listenToUsers: () => {
+        const q = query(collection(db, 'users'));
+        onSnapshot(q, (snapshot) => {
+          const users: AppUser[] = snapshot.docs.map((docSnap) => {
+            const d = docSnap.data();
+            return {
+              uid: d.uid ?? docSnap.id,
+              name: d.name ?? '',
+              email: d.email ?? docSnap.id,
+              avatar: d.avatar ?? '',
+              firstSeen: d.firstSeen ?? '',
+              lastSeen: d.lastSeen ?? '',
+              totalOrders: 0,
+              totalSpent: 0,
+            };
+          });
+          // Buyurtmalar bilan boyitish
+          const { orders } = get();
+          const enriched = users.map((u) => {
+            const userOrders = orders.filter((o) => o.userEmail === u.email);
+            return {
+              ...u,
+              totalOrders: userOrders.length,
+              totalSpent: userOrders.reduce((s, o) => s + o.total, 0),
+            };
+          });
+          set({ appUsers: enriched });
         });
       },
 
@@ -212,19 +342,54 @@ export const useStore = create<AppState>()(
       setStatsBranch: (branch) => set({ statsBranch: branch }),
       selectedBranchModal: null,
       setSelectedBranchModal: (branch) => set({ selectedBranchModal: branch }),
+
+
+      branchesList: [],
+
+addBranch: async (name) => {
+  try {
+    await addDoc(collection(db, 'branches'), { name, createdAt: new Date().toISOString() });
+  } catch (error) {
+    console.error("Filial qo'shishda xatolik:", error);
+  }
+},
+
+deleteBranch: async (id) => {
+  try {
+    await deleteDoc(doc(db, 'branches', id));
+  } catch (error) {
+    console.error("Filial o'chirishda xatolik:", error);
+  }
+},
+
+listenToBranches: () => {
+  const q = query(collection(db, 'branches'));
+  onSnapshot(q, (snapshot) => {
+    const fetchedBranches = snapshot.docs.map(doc => ({
+      id: doc.id,
+      name: doc.data().name,
+    }));
+    set({ branchesList: fetchedBranches });
+  });
+},
     }),
     {
-      name: 'hodfood-storage', // Xotiraga shu nom bilan saqlanadi
+      name: 'hodfood-storage',
       partialize: (state) => ({
-        // Faqat kerakli narsalarni doimiy saqlaymiz (refresh bo'lganda o'chmaydi)
         cart: state.cart,
         user: state.user,
         mode: state.mode,
-        currentBranch: state.currentBranch
+        currentBranch: state.currentBranch,
       }),
     }
   )
 );
 
-// Dastur ishga tushishi bilan bazani o'qish
 useStore.getState().listenToOrders();
+useStore.getState().listenToMenuItems();
+useStore.getState().listenToUsers();
+useStore.getState().listenToBranches();
+
+function setDoc(arg0: DocumentReference<DocumentData, DocumentData>, arg1: { uid: string; name: string; email: string; avatar: string; lastSeen: string; firstSeen: string; }, arg2: { merge: boolean; }) {
+  throw new Error('Function not implemented.');
+}

@@ -16,6 +16,7 @@ import { useStore } from '../../store/useStore';
 import { BRANCHES } from '../../data/menuData';
 import type { StatsFilter } from '../../types';
 
+
 function isInPeriod(date: Date, filter: StatsFilter): boolean {
   const now = new Date();
   const diff = (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24);

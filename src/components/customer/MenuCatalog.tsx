@@ -27,10 +27,12 @@ function MenuCard({ item }: { item: MenuItem }) {
   const { addToCart, removeFromCart, cart } = useStore();
   const [spicy, setSpicy] = useState(false);
 
-  const cartCount = cart.filter((c) => c.menuItem.id === item.id && c.spicySauce === spicy)
+  const cartCount = cart
+    .filter((c) => c.menuItem.id === item.id && c.spicySauce === spicy)
     .reduce((s, c) => s + c.quantity, 0);
 
   const emoji = CATEGORY_EMOJIS[item.category];
+  const hasImage = !!item.image;
 
   return (
     <motion.div
@@ -40,22 +42,65 @@ function MenuCard({ item }: { item: MenuItem }) {
       exit={{ opacity: 0, scale: 0.9 }}
       whileHover={{ y: -4 }}
       transition={{ duration: 0.2 }}
+      style={{ height: '100%' }}
     >
       <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
-        {/* Emoji area */}
+
+        {/* Rasm yoki Emoji */}
         <Box
           sx={{
-            background: 'linear-gradient(135deg, #FFF5F0 0%, #FFE5E5 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            py: 2.5,
-            fontSize: '3rem',
             position: 'relative',
             borderRadius: '16px 16px 0 0',
+            overflow: 'hidden',
+            height: 140,
+            flexShrink: 0,
           }}
         >
-          {emoji}
+          {hasImage ? (
+            /* Yuklangan rasm */
+            <Box
+              component="img"
+              src={item.image}
+              alt={item.name}
+              onError={(e) => {
+                // Rasm yuklanmasa emoji ga qaytamiz
+                const target = e.currentTarget as HTMLImageElement;
+                target.style.display = 'none';
+                const parent = target.parentElement;
+                if (parent) {
+                  parent.style.background = 'linear-gradient(135deg, #FFF5F0 0%, #FFE5E5 100%)';
+                  parent.style.display = 'flex';
+                  parent.style.alignItems = 'center';
+                  parent.style.justifyContent = 'center';
+                  parent.style.fontSize = '3rem';
+                  parent.innerHTML = emoji;
+                }
+              }}
+              sx={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: 'block',
+              }}
+            />
+          ) : (
+            /* Rasm yo'q — emoji */
+            <Box
+              sx={{
+                width: '100%',
+                height: '100%',
+                background: 'linear-gradient(135deg, #FFF5F0 0%, #FFE5E5 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '3rem',
+              }}
+            >
+              {emoji}
+            </Box>
+          )}
+
+          {/* Savat badge */}
           {cartCount > 0 && (
             <Badge
               badgeContent={cartCount}
@@ -66,7 +111,11 @@ function MenuCard({ item }: { item: MenuItem }) {
         </Box>
 
         <CardContent sx={{ flex: 1, pb: 0, pt: 1.5, px: 2 }}>
-          <Typography variant="body2" fontWeight={700} sx={{ lineHeight: 1.3, mb: 0.5, fontSize: '0.875rem' }}>
+          <Typography
+            variant="body2"
+            fontWeight={700}
+            sx={{ lineHeight: 1.3, mb: 0.5, fontSize: '0.875rem' }}
+          >
             {item.name}
           </Typography>
           <Typography color="primary" fontWeight={800} fontSize="1rem">
@@ -106,7 +155,14 @@ function MenuCard({ item }: { item: MenuItem }) {
               Savatga
             </Button>
           ) : (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+              }}
+            >
               <IconButton
                 size="small"
                 onClick={() => removeFromCart(item.id, spicy)}
@@ -114,11 +170,17 @@ function MenuCard({ item }: { item: MenuItem }) {
               >
                 <RemoveIcon fontSize="small" />
               </IconButton>
-              <Typography fontWeight={800} fontSize="1.1rem">{cartCount}</Typography>
+              <Typography fontWeight={800} fontSize="1.1rem">
+                {cartCount}
+              </Typography>
               <IconButton
                 size="small"
                 onClick={() => addToCart(item, spicy)}
-                sx={{ bgcolor: 'primary.main', color: '#fff', '&:hover': { bgcolor: 'primary.dark' } }}
+                sx={{
+                  bgcolor: 'primary.main',
+                  color: '#fff',
+                  '&:hover': { bgcolor: 'primary.dark' },
+                }}
               >
                 <AddIcon fontSize="small" />
               </IconButton>
@@ -131,16 +193,31 @@ function MenuCard({ item }: { item: MenuItem }) {
 }
 
 export default function MenuCatalog() {
-  const { menuItems, activeCategory, setActiveCategory, cart, setCartOpen, setCheckoutOpen } = useStore();
+  const { menuItems, activeCategory, setActiveCategory, cart, setCartOpen, setCheckoutOpen } =
+    useStore();
   const totalItems = cart.reduce((s, c) => s + c.quantity, 0);
   const totalPrice = cart.reduce((s, c) => s + c.menuItem.price * c.quantity, 0);
 
-  const filtered = activeCategory === 'all' ? menuItems : menuItems.filter((m) => m.category === activeCategory);
+  const filtered =
+    activeCategory === 'all'
+      ? menuItems
+      : menuItems.filter((m) => m.category === activeCategory);
 
   return (
     <Box sx={{ pb: totalItems > 0 ? 10 : 2 }}>
       {/* Category Filter */}
-      <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 1, pt: 0.5, px: 0, scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' } }}>
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 1,
+          overflowX: 'auto',
+          pb: 1,
+          pt: 0.5,
+          px: 0,
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}
+      >
         {CATEGORIES.map((cat) => (
           <Chip
             key={cat}
@@ -153,11 +230,26 @@ export default function MenuCatalog() {
         ))}
       </Box>
 
+      {/* Menyu bo'sh bo'lsa */}
+      {filtered.length === 0 && (
+        <Box sx={{ textAlign: 'center', py: 10 }}>
+          <Typography fontSize="3rem">🍽️</Typography>
+          <Typography color="text.secondary" fontWeight={600} mt={1}>
+            Mahsulotlar yuklanmoqda...
+          </Typography>
+        </Box>
+      )}
+
       {/* Grid */}
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(4, 1fr)', lg: 'repeat(5, 1fr)' },
+          gridTemplateColumns: {
+            xs: 'repeat(2, 1fr)',
+            sm: 'repeat(3, 1fr)',
+            md: 'repeat(4, 1fr)',
+            lg: 'repeat(5, 1fr)',
+          },
           gap: { xs: 1.5, sm: 2 },
           mt: 2,
         }}
@@ -169,7 +261,7 @@ export default function MenuCatalog() {
         </AnimatePresence>
       </Box>
 
-      {/* Sticky Cart FAB */}
+      {/* Sticky Cart */}
       <AnimatePresence>
         {totalItems > 0 && (
           <motion.div
@@ -187,14 +279,23 @@ export default function MenuCatalog() {
                 py: 2,
               }}
             >
-              <Box sx={{ maxWidth: 600, mx: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box
+                sx={{ maxWidth: 600, mx: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}
+              >
                 <Box
                   onClick={() => setCartOpen(true)}
                   sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, cursor: 'pointer' }}
                 >
                   <Fab
                     size="small"
-                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', minWidth: 40, width: 40, height: 40, '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}
+                    sx={{
+                      bgcolor: 'rgba(255,255,255,0.2)',
+                      color: '#fff',
+                      minWidth: 40,
+                      width: 40,
+                      height: 40,
+                      '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' },
+                    }}
                   >
                     <Badge badgeContent={totalItems} color="warning">
                       <ShoppingCartOutlined fontSize="small" />
@@ -203,7 +304,10 @@ export default function MenuCatalog() {
                   <Typography fontWeight={700} color="#fff" fontSize="0.9rem">
                     {totalItems} ta mahsulot
                   </Typography>
-                  <Typography fontWeight={900} sx={{ color: '#FFD700', fontSize: '1.1rem', ml: 'auto' }}>
+                  <Typography
+                    fontWeight={900}
+                    sx={{ color: '#FFD700', fontSize: '1.1rem', ml: 'auto' }}
+                  >
                     {totalPrice.toLocaleString()} so'm
                   </Typography>
                 </Box>

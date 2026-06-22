@@ -18,11 +18,14 @@ export default function SMSModal() {
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
   const [attempts, setAttempts] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   const phoneDisplay = pendingOrder?.phone ?? '+998 XX XXX XX XX';
 
-  function handleConfirm() {
-    const ok = confirmSMS(input);
+  async function handleConfirm() {
+    setLoading(true);
+    const ok = await confirmSMS(input);
+    setLoading(false);
     if (!ok) {
       setAttempts((a) => a + 1);
       setError(`Noto'g'ri kod. Qayta urinib ko'ring.`);
@@ -67,11 +70,20 @@ export default function SMSModal() {
         <TextField
           fullWidth
           value={input}
-          onChange={(e) => { setInput(e.target.value.replace(/\D/g, '').slice(0, 4)); setError(''); }}
+          onChange={(e) => {
+            setInput(e.target.value.replace(/\D/g, '').slice(0, 4));
+            setError('');
+          }}
           placeholder="_ _ _ _"
           inputProps={{
             maxLength: 4,
-            style: { textAlign: 'center', fontSize: '2rem', fontWeight: 800, letterSpacing: '0.8rem', padding: '12px' },
+            style: {
+              textAlign: 'center',
+              fontSize: '2rem',
+              fontWeight: 800,
+              letterSpacing: '0.8rem',
+              padding: '12px',
+            },
           }}
           sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
           autoFocus
@@ -81,13 +93,16 @@ export default function SMSModal() {
           <Alert severity="error" sx={{ mt: 1.5, borderRadius: 2 }}>{error}</Alert>
         )}
 
-        {/* Demo hint */}
         <Paper
           variant="outlined"
-          sx={{ mt: 2, p: 1.5, borderRadius: 2, bgcolor: 'warning.50', borderColor: 'warning.200', textAlign: 'center' }}
+          sx={{
+            mt: 2, p: 1.5, borderRadius: 2,
+            bgcolor: 'warning.50', borderColor: 'warning.200', textAlign: 'center',
+          }}
         >
           <Typography variant="caption" color="warning.dark" fontWeight={600}>
-            🔑 Test uchun kod: <strong style={{ fontSize: '1rem', letterSpacing: '0.3rem' }}>{smsCode}</strong>
+            🔑 Test uchun kod:{' '}
+            <strong style={{ fontSize: '1rem', letterSpacing: '0.3rem' }}>{smsCode}</strong>
           </Typography>
         </Paper>
 
@@ -104,10 +119,10 @@ export default function SMSModal() {
           variant="contained"
           size="large"
           onClick={handleConfirm}
-          disabled={input.length < 4}
+          disabled={input.length < 4 || loading}
           sx={{ borderRadius: 3, py: 1.5, fontWeight: 800 }}
         >
-          Tasdiqlash ✓
+          {loading ? 'Tekshirilmoqda...' : 'Tasdiqlash ✓'}
         </Button>
       </DialogActions>
     </Dialog>

@@ -8,23 +8,37 @@ import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import { useStore } from '../../store/useStore';
 import { motion } from 'framer-motion';
-import { auth, googleProvider } from '../../firebase';
+import { auth, googleProvider, db } from '../../firebase'; // db qo'shildi
 import { signInWithPopup } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'; // Firestore funksiyalari qo'shildi
 
 export default function GoogleLoginModal() {
   const { loginModalOpen, setLoginModalOpen, login } = useStore();
 
   const handleGoogleLogin = async () => {
     try {
+      // 1. Google orqali avtorizatsiya
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       
-      // Firebase'dan kelgan haqiqiy ma'lumotlarni store'ga saqlaymiz
-      login({
+      // 2. Foydalanuvchi ma'lumotlarini tayyorlash
+      const userData = {
         name: user.displayName || 'Foydalanuvchi',
         email: user.email || '',
-        avatar: user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`
-      });
+        avatar: user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`,
+        lastLogin: serverTimestamp(), // Qachon kirganini belgilab qo'yamiz
+      };
+
+      // 3. Firestore 'users' kolleksiyasiga saqlash (ID sifatida user.uid ishlatamiz)
+      // { merge: true } — agar foydalanuvchi oldin kirgan bo'lsa, ma'lumotlarini ustidan yozib yubormaydi
+      await setDoc(doc(db, 'users', user.uid), userData, { merge: true });
+
+      // 4. Mahalliy (Zustand) store'ga saqlash
+      login({
+        ...userData,
+        lastLogin: new Date().toISOString() // Lokal state uchun sana matn formatida bo'lgani yaxshi
+      } as any);
+
     } catch (error) {
       console.error("Google orqali kirishda xatolik:", error);
       alert("Tizimga kirishda bekor qilindi yoki xatolik yuz berdi.");
